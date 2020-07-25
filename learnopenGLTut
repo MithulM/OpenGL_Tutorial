@@ -29,45 +29,31 @@ static bool GLLogCall(const char* function, const char* file, int line)
     return true;
 }
 
-static unsigned int CompileShader(unsigned int type, const std::string& source)
+static unsigned int createShader(std::string type)
 {
-    GLError(unsigned int id = glCreateShader(type));
-    const char* src = source.c_str();
-    GLError(glShaderSource(id, 1, &src, nullptr));
-    GLError(glCompileShader(id));
+    std::ifstream t(type + ".shader");
+    std::string temp((std::istreambuf_iterator<char>(t)),
+        std::istreambuf_iterator<char>());
 
-    int result;
-    GLError(glGetShaderiv(id, GL_COMPILE_STATUS, &result));
-    if (result == GL_FALSE)
+    const char* shaderSource = temp.c_str();
+    // making a new shader object
+    unsigned int shaderID = glCreateShader((type == "fragment") ? GL_FRAGMENT_SHADER : (type == "vertex") ? GL_VERTEX_SHADER : GL_GEOMETRY_SHADER);
+    // Binding the source to shader
+    glShaderSource(shaderID, 1, &shaderSource, NULL);
+    // Compiling shader source
+    glCompileShader(shaderID);
+
+    // Checking for errors
+    int  success;
+    char infoLog[512];
+    glGetShaderiv(shaderID, GL_COMPILE_STATUS, &success);
+    if (!success)
     {
-        int length;
-        GLError(glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length));
-        char* message = (char*)malloc(length * sizeof(char));
-        GLError(glGetShaderInfoLog(id, length, &length, message));
-
-        std::cout << "Failed to compile " << (type == GL_VERTEX_SHADER ? "vertex" : "fragment") << " shader!" << std::endl;
-        std::cout << message << std::endl;
-        GLError(glDeleteShader(id));
-        return 0;
+        glGetShaderInfoLog(shaderID, 512, NULL, infoLog);
+        std::cout << "[OpenGL Error]: " + type +" shader compilation failed\n" << infoLog << std::endl;
     }
-    return id;
-}
 
-static unsigned int CreateShader(const std::string& vertexShader, const std::string& fragmentShader)
-{
-    GLError(unsigned int program = glCreateProgram());
-    GLError(unsigned int vs = CompileShader(GL_VERTEX_SHADER, vertexShader));
-    GLError(unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, fragmentShader));
-
-    GLError(glAttachShader(program, vs));
-    GLError(glAttachShader(program, fs));
-    GLError(glLinkProgram(program));
-    GLError(glValidateProgram(program));
-
-    GLError(glDeleteShader(vs));
-    GLError(glDeleteShader(fs));
-
-    return program;
+    return shaderID;
 }
 
 // Function called when the window is resized
@@ -103,6 +89,7 @@ int main()
     }
     // Makes the current window
     glfwMakeContextCurrent(window);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -110,26 +97,95 @@ int main()
         return -1;
     }
 
-    // set dimensions
-    // funct(x-start, y-start, width, height)
-    glViewport(0, 0, 800, 600);
-
     // Telling GLFW we want to call this function on every window resize by registering it
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    
+    unsigned int vertexShaderID = createShader("vertex");
+    unsigned int fragmentShaderID = createShader("fragment");
+
+    GLError(int program = glCreateProgram());
+    GLError(glAttachShader(program, vertexShaderID));
+    GLError(glAttachShader(program, fragmentShaderID));
+    GLError(glLinkProgram(program));
+
+    int  success;
+    char infoLog[512];
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (!success)
+    {
+        glGetProgramInfoLog(program, 512, NULL, infoLog);
+        std::cout << "[OpenGL Error]: linking compilation failed\n" << infoLog << std::endl;
+    }
+
+    // Clearing Shader memory
+    glDeleteShader(vertexShaderID);
+    glDeleteShader(fragmentShaderID);
+
+    // Vertecies of shape
+    float vertices[] = {
+     0.5f,  0.5f, 0.0f,
+     0.5f, -0.5f, 0.0f,
+    -0.5f, -0.5f, 0.0f,
+    -0.5f,  0.5f, 0.0f 
+    };
+
+    unsigned int indices[] = {
+        0, 1, 3,
+        1, 2, 3 
+    };
+
+    // Create Vertex Buffer Object and Vertex Array Object
+    unsigned int VBO, VAO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    // Selecting Vertex Array Object to modify.
+    glBindVertexArray(VAO);
+
+    // Selecting which Vertex Buffer Object to modify
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    // Filling buffer with data.
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // Telling OpenGL how to read in the data.
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+    // Will enable fetching by searching for attrib_index in VAO
+    glEnableVertexAttribArray(0);
+    // Unbinding the VBOs
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // Unbinding VAO
+    glBindVertexArray(0);
+
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
         processInput(window);
         
         // rendering here
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        // What program to show
+        glUseProgram(program);
+        // Choosing the setting to draw in.
+        glBindVertexArray(VAO);
+        // Drawing triangle
+        glDrawElements(GL_TRIANGLES, 7, GL_UNSIGNED_INT, 0);
+
+        // glfw: swap buffers and poll IO events
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
+    // Clearing memory
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteProgram(program);
+
+    // Close window
     glfwTerminate();
     return 0;
 }
