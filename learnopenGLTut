@@ -1,0 +1,135 @@
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <streambuf>
+
+#define NUM_TRIANGLE_VERTEX 3
+#define ASSERT(x) if (!(x)) __debugbreak();
+
+#ifdef _DEBUG
+#define GLError(x) GLClearError(); x; ASSERT(GLLogCall(#x, __FILE__, __LINE__))
+#else
+#define GLError(x) x
+#endif
+
+static void GLClearError()
+{
+    while (glGetError());
+}
+
+static bool GLLogCall(const char* function, const char* file, int line)
+{
+    while (GLenum error = glGetError())
+    {
+        std::cout << "[OpenGL Error]: (0x" << std::hex << error << ")\n\ton line: " << std::dec << line << "\n\tby function: " << function << "\n\tin file: " << file << std::endl << std::endl;
+        return false;
+    }
+    return true;
+}
+
+static unsigned int CompileShader(unsigned int type, const std::string& source)
+{
+    GLError(unsigned int id = glCreateShader(type));
+    const char* src = source.c_str();
+    GLError(glShaderSource(id, 1, &src, nullptr));
+    GLError(glCompileShader(id));
+
+    int result;
+    GLError(glGetShaderiv(id, GL_COMPILE_STATUS, &result));
+    if (result == GL_FALSE)
+    {
+        int length;
+        GLError(glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length));
+        char* message = (char*)malloc(length * sizeof(char));
+        GLError(glGetShaderInfoLog(id, length, &length, message));
+
+        std::cout << "Failed to compile " << (type == GL_VERTEX_SHADER ? "vertex" : "fragment") << " shader!" << std::endl;
+        std::cout << message << std::endl;
+        GLError(glDeleteShader(id));
+        return 0;
+    }
+    return id;
+}
+
+static unsigned int CreateShader(const std::string& vertexShader, const std::string& fragmentShader)
+{
+    GLError(unsigned int program = glCreateProgram());
+    GLError(unsigned int vs = CompileShader(GL_VERTEX_SHADER, vertexShader));
+    GLError(unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, fragmentShader));
+
+    GLError(glAttachShader(program, vs));
+    GLError(glAttachShader(program, fs));
+    GLError(glLinkProgram(program));
+    GLError(glValidateProgram(program));
+
+    GLError(glDeleteShader(vs));
+    GLError(glDeleteShader(fs));
+
+    return program;
+}
+
+// Function called when the window is resized
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    glViewport(0, 0, width, height);
+}
+
+// Proccesses the input from window
+void processInput(GLFWwindow* window)
+{
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+}
+
+int main()
+{
+    if (!glfwInit())
+        return -1;
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    // Create a window
+    GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
+
+    if (window == NULL)
+    {
+        std::cout << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
+    // Makes the current window
+    glfwMakeContextCurrent(window);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
+
+    // set dimensions
+    // funct(x-start, y-start, width, height)
+    glViewport(0, 0, 800, 600);
+
+    // Telling GLFW we want to call this function on every window resize by registering it
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    
+    // Main loop
+    while (!glfwWindowShouldClose(window))
+    {
+        processInput(window);
+        
+        // rendering here
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    glfwTerminate();
+    return 0;
+}
