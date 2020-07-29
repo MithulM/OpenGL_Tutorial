@@ -142,10 +142,18 @@ int main()
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        float timeValue = glfwGetTime();
+        float redValue = (sin(timeValue) / 2.0f) + 0.5f;
+
+        int red_frag_color = glGetUniformLocation(program_red, "color");
         GLError(glUseProgram(program_red));                                                                      // What program to show
+        glUniform4f(red_frag_color, redValue, 0.0f, 0.0f, 1.0f);
         GLError(glBindVertexArray(VAOs[0]));                                                                     // Choosing the setting to draw in.
         GLError(glDrawElements(GL_TRIANGLES, sizeof(red_indices) / sizeof(red_indices[0]), GL_UNSIGNED_INT, 0)); // Drawing triangle
         
+        int white_frag_color = glGetUniformLocation(program_white, "color");
+        GLError(glUseProgram(program_white));                                                                      // What program to show
+        glUniform4f(white_frag_color, 1 - redValue, 0.0f, 0.0f, 1.0f);
         GLError(glUseProgram(program_white));
         GLError(glBindVertexArray(VAOs[1]));
         GLError(glDrawElements(GL_TRIANGLES, sizeof(white_indices) / sizeof(white_indices[0]), GL_UNSIGNED_INT, 0));
