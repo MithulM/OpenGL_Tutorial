@@ -3,4 +3,4 @@ Requires x64 computer.
 
 Uses vertecies of the Letter F to make triangles and form the letter F.
 
-![](https://imgur.com/zfC6qCf)
+![](https://giphy.com/gifs/M9lCVGmfSDdFhC6TX0)
