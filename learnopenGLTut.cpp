@@ -44,42 +44,29 @@ int main()
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
-    GLError(int program_red = glCreateProgram());
-    GLError(int program_white = glCreateProgram());
+    GLError(int program = glCreateProgram());
 
     // Telling GLFW we want to call this function on every window resize by registering it
-    unsigned int fragmentShaderRedID = createShader("fragment", "dark_red");
-    unsigned int fragmentShaderWhiteID = createShader("fragment");
+    unsigned int fragmentShaderID = createShader("fragment");
     unsigned int vertexShaderID = createShader("vertex");
 
-    GLError(glAttachShader(program_red, vertexShaderID));
-    GLError(glAttachShader(program_red, fragmentShaderRedID));
+    GLError(glAttachShader(program, vertexShaderID));
+    GLError(glAttachShader(program, fragmentShaderID));
 
-    GLError(glAttachShader(program_white, vertexShaderID));
-    GLError(glAttachShader(program_white, fragmentShaderWhiteID));
-
-    GLError(glLinkProgram(program_red));
-    int  success;
+    int success;
     char infoLog[512];
-    GLError(glGetProgramiv(program_red, GL_LINK_STATUS, &success));
-    if (!success)
-    {
-        glGetProgramInfoLog(program_red, 512, NULL, infoLog);
-        std::cout << "[OpenGL Error]: linking compilation failed\n" << infoLog << std::endl;
-    }
 
-    GLError(glLinkProgram(program_white));
-    GLError(glGetProgramiv(program_white, GL_LINK_STATUS, &success));
+    GLError(glLinkProgram(program));
+    GLError(glGetProgramiv(program, GL_LINK_STATUS, &success));
     if (!success)
     {
-        glGetProgramInfoLog(program_white, 512, NULL, infoLog);
+        glGetProgramInfoLog(program, 512, NULL, infoLog);
         std::cout << "[OpenGL Error]: linking compilation failed\n" << infoLog << std::endl;
     }
 
     // Clearing Shader memory
     GLError(glDeleteShader(vertexShaderID));
-    GLError(glDeleteShader(fragmentShaderRedID));
-    GLError(glDeleteShader(fragmentShaderWhiteID));
+    GLError(glDeleteShader(fragmentShaderID));
 
     // Vertecies of shape
     float vertices[] = {
@@ -139,22 +126,21 @@ int main()
         processInput(window);
         
         // rendering here
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        GLError(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
+        GLError(glClear(GL_COLOR_BUFFER_BIT));
 
-        float timeValue = glfwGetTime();
-        float redValue = (sin(timeValue) / 2.0f) + 0.5f;
+        float iTime = glfwGetTime();
+        float redValue = sin(iTime) / 2.0f + 0.5f;
 
-        int red_frag_color = glGetUniformLocation(program_red, "color");
-        GLError(glUseProgram(program_red));                                                                      // What program to show
-        glUniform4f(red_frag_color, redValue, 0.0f, 0.0f, 1.0f);
-        GLError(glBindVertexArray(VAOs[0]));                                                                     // Choosing the setting to draw in.
-        GLError(glDrawElements(GL_TRIANGLES, sizeof(red_indices) / sizeof(red_indices[0]), GL_UNSIGNED_INT, 0)); // Drawing triangle
+        int width, height;
+        glfwGetWindowSize(window, &width, &height);
         
-        int white_frag_color = glGetUniformLocation(program_white, "color");
-        GLError(glUseProgram(program_white));                                                                      // What program to show
-        glUniform4f(white_frag_color, 1 - redValue, 0.0f, 0.0f, 1.0f);
-        GLError(glUseProgram(program_white));
+        GLError(int red_frag_color = glGetUniformLocation(program, "res"));
+        GLError(glUseProgram(program));                                                                             // What program to show
+        GLError(glUniform3f(red_frag_color, width, height, redValue));                                              // Requires to bind program before
+        GLError(glBindVertexArray(VAOs[0]));                                                                        // Choosing the setting to draw in.
+        GLError(glDrawElements(GL_TRIANGLES, sizeof(red_indices) / sizeof(red_indices[0]), GL_UNSIGNED_INT, 0));    // Drawing triangle
+        
         GLError(glBindVertexArray(VAOs[1]));
         GLError(glDrawElements(GL_TRIANGLES, sizeof(white_indices) / sizeof(white_indices[0]), GL_UNSIGNED_INT, 0));
 
@@ -164,10 +150,9 @@ int main()
     }
 
     // Clearing memory
-    glDeleteVertexArrays(2, VAOs);
-    glDeleteBuffers(2, &VBOs);
-    glDeleteProgram(program_red);
-    glDeleteProgram(program_white);
+    GLError(glDeleteVertexArrays(2, VAOs));
+    GLError(glDeleteBuffers(2, &VBOs));
+    GLError(glDeleteProgram(program));
 
     // Close window
     glfwTerminate();
